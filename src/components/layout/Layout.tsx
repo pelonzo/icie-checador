@@ -89,7 +89,7 @@ export function Layout({
           {isAdmin && (
             <button
               onClick={() => setActiveTab('admin')}
-              className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 ${activeTab === 'admin'`
+              className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 ${activeTab === 'admin'
                 ? 'bg-nav-active text-white shadow-md'
                 : 'text-text-muted hover:text-text-dark hover:bg-white/40'
                 }`}
@@ -171,26 +171,29 @@ export function Layout({
       )}
 
       {/* Navigation tabs for mobile screen sizes */}
-      <div className="md:hidden flex gap-1 p-1 bg-[#e9e5db] rounded-full mb-6 max-w-sm mx-auto w-full">
+      <div className="md:hidden flex gap-1 p-1 bg-[#e9e5db] rounded-full mb-6 overflow-x-auto w-full">
         <button
           onClick={() => setActiveTab('dashboard')}
-          className={`flex-1 text-center py-2 rounded-full text-xs font-bold transition-all ${activeTab === 'dashboard' ? 'bg-nav-active text-white' : 'text-text-muted'
-            }`}
+          className={`flex-1 text-center py-2 px-3 rounded-full text-xs font-bold transition-all whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-nav-active text-white' : 'text-text-muted'}`}
         >
           Dashboard
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex-1 text-center py-2 rounded-full text-xs font-bold transition-all ${activeTab === 'history' ? 'bg-nav-active text-white' : 'text-text-muted'
-            }`}
+          className={`flex-1 text-center py-2 px-3 rounded-full text-xs font-bold transition-all whitespace-nowrap ${activeTab === 'history' ? 'bg-nav-active text-white' : 'text-text-muted'}`}
         >
           Historial
+        </button>
+        <button
+          onClick={() => setActiveTab('permisos')}
+          className={`flex-1 text-center py-2 px-3 rounded-full text-xs font-bold transition-all whitespace-nowrap ${activeTab === 'permisos' ? 'bg-nav-active text-white' : 'text-text-muted'}`}
+        >
+          Permisos
         </button>
         {isAdmin && (
           <button
             onClick={() => setActiveTab('admin')}
-            className={`flex-1 text-center py-2 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-1 ${activeTab === 'admin' ? 'bg-nav-active text-white' : 'text-text-muted'
-              }`}
+            className={`flex-1 text-center py-2 px-3 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-1 whitespace-nowrap ${activeTab === 'admin' ? 'bg-nav-active text-white' : 'text-text-muted'}`}
           >
             <ShieldCheck className="w-3 h-3" />
             Admin
@@ -203,7 +206,7 @@ export function Layout({
         {children}
       </main>
 
-      {/* Warning Sign-out Modal (RF-003) */}
+      {/* Warning Sign-out Modal */}
       {showLogoutModal && (
         <div className="fixed inset-0 bg-black/35 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#faf8f5] border border-card-border max-w-md w-full rounded-[2rem] p-8 shadow-2xl relative animate-scaleUp">
