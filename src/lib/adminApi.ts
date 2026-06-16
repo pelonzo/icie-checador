@@ -159,6 +159,17 @@ export async function requestPermiso(
   if (error) throw new Error(error.message);
 }
 
+/** Empleado: su propio registro */
+export async function getMyEmployee(userEmail: string): Promise<Employee | null> {
+  const { data, error } = await supabase
+    .from('employees')
+    .select('*')
+    .eq('user_email', userEmail)
+    .single();
+  if (error || !data) return null;
+  return rowToEmployee(data as Record<string, unknown>);
+}
+
 /** Empleado: sus propias solicitudes */
 export async function getMyPermisos(userEmail: string): Promise<PermisoVacacion[]> {
   // Buscar el employee_id vinculado a este email
@@ -223,7 +234,7 @@ export async function reviewPermiso(
 }
 
 export async function getVacationBalance(
-  userEmail: string,
+  _userEmail: string,
   employeeId: string
 ): Promise<{ balance: number; used: number; total: number }> {
   const { data: emp } = await supabase
@@ -373,7 +384,8 @@ export async function calculatePeriodIncidencias(
       return email === empEmail;
     });
 
-    const checkedDays = new Set(empEntries.map(te => te.date as string));
+    // checkedDays unused — kept for future reference
+    // const checkedDays = new Set(empEntries.map(te => te.date as string));
 
     // Permisos del empleado
     const empPermisos = (permisos ?? []).filter(p => p.employee_id === empId);
@@ -412,7 +424,6 @@ export async function calculatePeriodIncidencias(
         });
       } else {
         // Verificar retardo
-        const [eh, em] = entryTime.split(':').map(Number);
         const maxEntry = new Date(`${day}T${entryTime}:00`);
         maxEntry.setMinutes(maxEntry.getMinutes() + tolerance);
 
