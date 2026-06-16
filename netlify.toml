@@ -1,0 +1,12 @@
+[build]
+  command         = "npm run build"
+  publish         = "dist"
+
+# Redirige todas las rutas al index.html para que React Router (o el estado de tabs) funcione
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+
+[build.environment]
+  NODE_VERSION = "20"

@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+/* ============================================================
+   ICIE Brand Identity — Design Tokens
+   Fuente: brand-identity.json v2025
+   ============================================================ */
+
+@theme {
+  /* ── Colores primarios ─────────────────────────────────── */
+  --color-bg-base:          #0F2B3C;   /* ICIE Navy            */
+  --color-nav-active:       #0F2B3C;   /* Botones de nav activa */
+  --color-text-dark:        #1B2F3D;   /* Foreground principal  */
+  --color-text-muted:       #627585;   /* Muted foreground      */
+
+  /* ── Verde institucional ────────────────────────────────── */
+  --color-accent-gold:      #82B440;   /* ICIE Green (accent)   */
+  --color-accent-gold-dark: #0F2B3C;   /* Navy como dark accent */
+  --color-accent-gold-light: #A3CC66;  /* Verde claro           */
+
+  /* ── Tarjetas y superficies ─────────────────────────────── */
+  --color-card-bg:          rgba(250, 250, 247, 0.90); /* #FAFAF7 */
+  --color-card-border:      rgba(222, 224, 216, 0.65); /* #DEE0D8 */
+  --color-sidebar-bg:       #FAFAF7;
+
+  /* ── Sombras ────────────────────────────────────────────── */
+  --shadow-premium:         0 20px 40px -15px rgba(15, 43, 60, 0.06),
+                            0 0 1px 1px rgba(15, 43, 60, 0.03);
+  --shadow-card-hover:      0 25px 50px -12px rgba(15, 43, 60, 0.10);
+  --shadow-green:           0 10px 30px -10px hsl(85 50% 48% / 0.30);
+
+  /* ── Animaciones ────────────────────────────────────────── */
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  /* ── Radio base ─────────────────────────────────────────── */
+  --radius: 0.75rem;
+}
+
+/* ── Semánticos (para componentes shadcn-style) ───────────── */
+:root {
+  --primary:            200 65% 15%;  /* ICIE Navy HSL        */
+  --primary-foreground: 0 0% 100%;
+  --accent:             85 50% 48%;   /* ICIE Green HSL       */
+  --accent-foreground:  0 0% 100%;
+  --background:         0 0% 100%;
+  --foreground:         200 30% 15%;
+  --card:               90 10% 98%;
+  --muted:              90 8% 94%;
+  --border:             90 10% 88%;
+  --ring:               85 50% 48%;
+  --destructive:        0 80% 55%;
+  --success:            90 55% 45%;
+  --warning:            45 95% 50%;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-bg-base);
+    /* Gradiente cálido institucional sobre el navy como base */
+    background-image: radial-gradient(
+      circle at top right,
+      #fdfcfa 0%,
+      #f4f1ea 55%,
+      #eeecd5 85%,
+      #e6e3d8 100%
+    );
+    color: var(--color-text-dark);
+    /* Inter para UI general, Plus Jakarta Sans para headings via @apply en clases */
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    margin: 0;
+    overflow-x: hidden;
+  }
+
+  /* Headings usa Plus Jakarta Sans */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+
+  ::-webkit-scrollbar        { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track  { background: transparent; }
+  ::-webkit-scrollbar-thumb  { background: #c8ccbf; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #adb1a4; }
+}
+
+/* ── Glassmorphism utilities ──────────────────────────────── */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.76);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.62);
+}
+
+.glass-panel-dark {
+  background: rgba(15, 43, 60, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ── Botones CTA green (brand style) ─────────────────────── */
+.btn-cta {
+  background: linear-gradient(135deg, hsl(85 50% 48%) 0%, hsl(85 40% 40%) 100%);
+  color: #fff;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  box-shadow: 0 10px 30px -10px hsl(85 50% 48% / 0.35);
+  transition: transform 200ms, box-shadow 200ms;
+}
+.btn-cta:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 20px 40px -15px hsl(85 50% 48% / 0.45);
+}
