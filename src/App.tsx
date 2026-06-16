@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard';
 import { History } from './pages/History';
 import { Admin } from './pages/Admin';
 import { Login } from './pages/Login';
+import { MisPermisos } from './pages/MisPermisos';
 import { Loader2 } from 'lucide-react';
 import { isAdminEmail } from './config/adminRoles';
 
@@ -24,9 +25,9 @@ export function App() {
     startPause,
     endPause,
     editEntryManual,
-  } = useTimeTracking(user?.id);  // Supabase UUID como userId
+  } = useTimeTracking(user?.id);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'admin'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'permisos' | 'admin'>('dashboard');
   const isAdmin = isAdminEmail(user?.email);
 
   if (isAuthLoading) {
@@ -70,6 +71,7 @@ export function App() {
           clockOut={clockOut}
           startPause={startPause}
           endPause={endPause}
+          onNavigatePermisos={() => setActiveTab('permisos')}
         />
       ) : activeTab === 'history' ? (
         <History
@@ -77,6 +79,8 @@ export function App() {
           onEditEntry={editEntryManual}
           isAdmin={isAdmin}
         />
+      ) : activeTab === 'permisos' ? (
+        <MisPermisos userEmail={user.email} />
       ) : isAdmin ? (
         <Admin userEmail={user.email} />
       ) : null}
