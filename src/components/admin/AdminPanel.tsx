@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Users,
   CalendarOff,
@@ -9,11 +9,15 @@ import {
   ChevronRight,
   RefreshCw,
   BarChart2,
+  Wifi,
+  WifiOff,
+  LogIn,
 } from 'lucide-react';
-import { getAllPermisos, getMonthlyReport } from '../../lib/adminApi';
+import { getAllPermisos, getMonthlyReport, getPresenceData } from '../../lib/adminApi';
 import type { PermisoVacacion, MonthlyIncidenciaSummary } from '../../types/admin';
+import type { EmployeePresence } from '../../lib/adminApi';
 import { PERMISO_LABELS } from '../../types/admin';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 type AdminView = 'dashboard' | 'employees' | 'permisos' | 'incidencias';
@@ -33,9 +37,103 @@ function currentPeriod(): string {
   return `${realYear}-${String(realMonth).padStart(2, '0')}`;
 }
 
-export function AdminPanel({ adminEmail, onNavigate }: AdminPanelProps) {
+// ─── Helpers de presencia ─────────────────────────────────────
+
+const PRESENCE_CONFIG = {
+  working: {
+    dot:   'bg-green-500',
+    ring:  'ring-green-200',
+    label: 'Trabajando',
+    text:  'text-green-700',
+    bg:    'bg-green-50',
+    Icon:  LogIn,
+  },
+  done: {
+    dot:   'bg-blue-400',
+    ring:  'ring-blue-100',
+    label: 'Jornada completa',
+    text:  'text-blue-600',
+    bg:    'bg-blue-50',
+    Icon:  CheckCircle,
+  },
+  online: {
+    dot:   'bg-yellow-400',
+    ring:  'ring-yellow-100',
+    label: 'En línea',
+    text:  'text-yellow-700',
+    bg:    'bg-yellow-50',
+    Icon:  Wifi,
+  },
+  inactive: {
+    dot:   'bg-gray-300',
+    ring:  'ring-gray-100',
+    label: 'Sin actividad hoy',
+    text:  'text-text-muted',
+    bg:    'bg-[#e9e5db]/40',
+    Icon:  WifiOff,
+  },
+} as const;
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map(w => w[0])
+    .join('')
+    .toUpperCase();
+}
+
+function PresenceCard({ emp }: { emp: EmployeePresence }) {
+  const cfg = PRESENCE_CONFIG[emp.status];
+
+  const subLabel = (() => {
+    if (emp.status === 'working' && emp.clockIn) {
+      const since = formatDistanceToNow(parseISO(emp.clockIn), { locale: es, addSuffix: false });
+      return `Desde hace ${since}`;
+    }
+    if (emp.status === 'done' && emp.clockOut) {
+      return `Salió ${formatDistanceToNow(parseISO(emp.clockOut), { locale: es, addSuffix: true })}`;
+    }
+    if (emp.lastSeenAt) {
+      return `Visto ${formatDistanceToNow(parseISO(emp.lastSeenAt), { locale: es, addSuffix: true })}`;
+    }
+    return 'Sin sesión iniciada';
+  })();
+
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/50 transition-colors">
+      <div className="relative shrink-0">
+        <div className="w-10 h-10 rounded-full bg-[#0F2B3C]/10 flex items-center justify-center">
+          <span className="text-xs font-extrabold text-[#0F2B3C]">
+            {getInitials(emp.preferredName || emp.fullName)}
+          </span>
+        </div>
+        <span
+          className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${cfg.dot} ring-2 ${cfg.ring}`}
+        />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold text-text-dark truncate">
+          {emp.preferredName || emp.fullName.split(' ')[0]}
+        </p>
+        <p className="text-[10px] text-text-muted truncate leading-tight">{subLabel}</p>
+      </div>
+      <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${cfg.text} ${cfg.bg}`}>
+        <cfg.Icon className="w-2.5 h-2.5" />
+        {cfg.label}
+      </span>
+    </div>
+  );
+}
+
+// ─── Componente principal ─────────────────────────────────────
+
+export function AdminPanel({ adminEmail: _adminEmail, onNavigate }: AdminPanelProps) {
   const [pendingPermisos, setPendingPermisos] = useState<PermisoVacacion[]>([]);
   const [monthlyReport, setMonthlyReport]     = useState<MonthlyIncidenciaSummary[]>([]);
+  const [presence, setPresence]               = useState<EmployeePresence[]>([]);
+  const [presenceLoading, setPresenceLoading] = useState(true);
+  const [lastRefresh, setLastRefresh]         = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
   const period = currentPeriod();
 
@@ -58,9 +156,33 @@ export function AdminPanel({ adminEmail, onNavigate }: AdminPanelProps) {
     load();
   }, [period]);
 
+  const loadPresence = useCallback(async () => {
+    setPresenceLoading(true);
+    try {
+      const data = await getPresenceData();
+      const order = { working: 0, online: 1, done: 2, inactive: 3 };
+      data.sort((a, b) => order[a.status] - order[b.status]);
+      setPresence(data);
+      setLastRefresh(new Date());
+    } catch (err) {
+      console.error('Error cargando presencia:', err);
+    } finally {
+      setPresenceLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPresence();
+    const interval = setInterval(loadPresence, 30 * 1000);
+    return () => clearInterval(interval);
+  }, [loadPresence]);
+
   const totalRetardos   = monthlyReport.reduce((s, e) => s + e.retardos, 0);
   const totalAusencias  = monthlyReport.reduce((s, e) => s + e.ausenciasSJ, 0);
   const employeesBonus  = monthlyReport.filter((e) => e.bonoPuntualidad).length;
+
+  const workingCount = presence.filter(e => e.status === 'working').length;
+  const onlineCount  = presence.filter(e => e.status === 'working' || e.status === 'online').length;
 
   const periodLabel = (() => {
     const [y, m] = period.split('-').map(Number);
@@ -166,6 +288,78 @@ export function AdminPanel({ adminEmail, onNavigate }: AdminPanelProps) {
         ))}
       </div>
 
+      {/* ── PRESENCIA HOY ────────────────────────────────────── */}
+      <div className="glass-panel rounded-[1.75rem] border border-card-border shadow-premium overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-card-border">
+          <div className="flex items-center gap-2.5">
+            <Wifi className="w-4 h-4 text-green-500" />
+            <h2 className="text-sm font-bold text-text-dark">Presencia de Hoy</h2>
+            <div className="flex items-center gap-1.5 ml-1">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-green-700 bg-green-50">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                {workingCount} trabajando
+              </span>
+              {onlineCount > workingCount && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-yellow-700 bg-yellow-50">
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 inline-block" />
+                  {onlineCount - workingCount} en línea
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={loadPresence}
+            disabled={presenceLoading}
+            className="flex items-center gap-1.5 text-xs font-bold text-text-muted hover:text-text-dark transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${presenceLoading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">
+              {presenceLoading
+                ? 'Actualizando…'
+                : `Hace ${formatDistanceToNow(lastRefresh, { locale: es })}`
+              }
+            </span>
+          </button>
+        </div>
+
+        {presenceLoading && presence.length === 0 ? (
+          <div className="flex items-center gap-3 text-text-muted text-xs px-6 py-5">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            Cargando presencia…
+          </div>
+        ) : presence.length === 0 ? (
+          <p className="text-xs text-text-muted px-6 py-5">Sin datos de empleados.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 divide-card-border">
+            <div className="px-4 py-3 space-y-0.5 md:border-r border-card-border">
+              {presence
+                .filter((_, i) => i % 2 === 0)
+                .map(emp => <PresenceCard key={emp.userEmail} emp={emp} />)}
+            </div>
+            <div className="px-4 py-3 space-y-0.5">
+              {presence
+                .filter((_, i) => i % 2 === 1)
+                .map(emp => <PresenceCard key={emp.userEmail} emp={emp} />)}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3 px-6 py-3 border-t border-card-border bg-[#e9e5db]/20">
+          {[
+            { dot: 'bg-green-500',  label: 'Trabajando (fichado)' },
+            { dot: 'bg-yellow-400', label: 'En línea (< 5 min)' },
+            { dot: 'bg-blue-400',   label: 'Jornada completa' },
+            { dot: 'bg-gray-300',   label: 'Sin actividad' },
+          ].map(({ dot, label }) => (
+            <span key={label} className="flex items-center gap-1.5 text-[10px] text-text-muted">
+              <span className={`w-2 h-2 rounded-full ${dot}`} />
+              {label}
+            </span>
+          ))}
+          <span className="ml-auto text-[10px] text-text-muted">Auto-actualiza cada 30 s</span>
+        </div>
+      </div>
+
       {pendingPermisos.length > 0 && (
         <div className="glass-panel rounded-[1.75rem] border border-card-border shadow-premium overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-card-border">
@@ -259,4 +453,4 @@ export function AdminPanel({ adminEmail, onNavigate }: AdminPanelProps) {
       )}
     </div>
   );
-}
+  }
