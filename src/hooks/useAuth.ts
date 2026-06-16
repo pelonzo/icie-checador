@@ -26,12 +26,21 @@ export function useAuth() {
     };
   }
 
+  // Actualiza last_seen_at en profiles (fire-and-forget)
+  function touchLastSeen(userId: string) {
+    supabase
+      .from('profiles')
+      .upsert({ id: userId, last_seen_at: new Date().toISOString() }, { onConflict: 'id' })
+      .then(() => {});
+  }
+
   // Al montar: leer sesión activa y suscribirse a cambios
   useEffect(() => {
     // Sesión inicial
     supabase.auth.getSession().then(({ data }) => {
       setUser(sessionToProfile(data.session));
       setIsLoading(false);
+      if (data.session?.user) touchLastSeen(data.session.user.id);
     });
 
     // Suscripción a cambios (login / logout / refresh de token)
@@ -39,10 +48,21 @@ export function useAuth() {
       (_event, session) => {
         setUser(sessionToProfile(session));
         setIsLoading(false);
+        if (session?.user) touchLastSeen(session.user.id);
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Refrescar last_seen_at cada 2 minutos mientras la sesión esté activa
+    const interval = setInterval(() => {
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session?.user) touchLastSeen(data.session.user.id);
+      });
+    }, 2 * 60 * 1000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearInterval(interval);
+    };
   }, []);
 
   // Login con Google vía OAuth de Supabase
@@ -80,4 +100,4 @@ export function useAuth() {
     loginWithGoogle,
     logout,
   };
-}
+      }
