@@ -11,7 +11,9 @@ import {
   Clock,
   CheckCircle2,
   Circle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  CalendarOff,
+  ChevronRight,
 } from 'lucide-react';
 import { type UserProfile } from '../hooks/useAuth';
 import { type LocalTimeEntry, type LocalPause, db } from '../lib/db';
@@ -309,6 +311,21 @@ export function Dashboard({
             ))}
           </div>
         </div >
+
+        {/* Acceso rápido: solicitar permiso */}
+        <button
+          onClick={onNavigatePermisos}
+          className="glass-panel p-5 rounded-[2rem] border border-card-border shadow-premium flex items-center gap-4 hover:bg-white/60 active:scale-[0.98] transition-all text-left group w-full"
+        >
+          <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
+            <CalendarOff className="w-5 h-5 text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-text-dark">Solicitar Permiso</p>
+            <p className="text-xs text-text-muted">Vacaciones, permisos y más</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-text-muted group-hover:translate-x-0.5 transition-transform shrink-0" />
+        </button>
       </section >
 
     </div >
