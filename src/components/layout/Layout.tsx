@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { Settings, Bell, LogOut, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Settings, Bell, LogOut, ShieldAlert, ShieldCheck, CalendarOff } from 'lucide-react';
 import { type UserProfile } from '../../hooks/useAuth';
 import { isAdminEmail } from '../../config/adminRoles';
 
 interface LayoutProps {
   children: React.ReactNode;
   user: UserProfile;
-  activeTab: 'dashboard' | 'history' | 'admin';
-  setActiveTab: (tab: 'dashboard' | 'history' | 'admin') => void;
+  activeTab: 'dashboard' | 'history' | 'permisos' | 'admin';
+  setActiveTab: (tab: 'dashboard' | 'history' | 'permisos' | 'admin') => void;
   onLogout: () => void;
   hasActiveEntry: boolean;
 }
@@ -76,10 +76,20 @@ export function Layout({
           >
             Historial y Horarios
           </button>
+          <button
+            onClick={() => setActiveTab('permisos')}
+            className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 ${activeTab === 'permisos'
+              ? 'bg-nav-active text-white shadow-md'
+              : 'text-text-muted hover:text-text-dark hover:bg-white/40'
+              }`}
+          >
+            <CalendarOff className="w-4 h-4" />
+            Mis Permisos
+          </button>
           {isAdmin && (
             <button
               onClick={() => setActiveTab('admin')}
-              className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 ${activeTab === 'admin'
+              className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 ${activeTab === 'admin'`
                 ? 'bg-nav-active text-white shadow-md'
                 : 'text-text-muted hover:text-text-dark hover:bg-white/40'
                 }`}
