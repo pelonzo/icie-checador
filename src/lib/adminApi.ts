@@ -172,7 +172,6 @@ export async function getMyEmployee(userEmail: string): Promise<Employee | null>
 
 /** Empleado: sus propias solicitudes */
 export async function getMyPermisos(userEmail: string): Promise<PermisoVacacion[]> {
-  // Buscar el employee_id vinculado a este email
   const { data: emp } = await supabase
     .from('employees')
     .select('id')
@@ -301,22 +300,16 @@ export async function saveIncidencia(
   if (error) throw new Error(error.message);
 }
 
-/**
- * Calcula incidencias del período 27-26 a partir de time_entries.
- * Se ejecuta en el frontend comparando entradas contra el schedule del empleado.
- */
 export async function calculatePeriodIncidencias(
   adminEmail: string,
-  period: string   // YYYY-MM
+  period: string
 ): Promise<{ created: number; updated: number }> {
-  // Período ICIE: del día 27 del mes anterior al 26 del mes actual
   const [year, month] = period.split('-').map(Number);
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear  = month === 1 ? year - 1 : year;
   const periodStart = `${prevYear}-${String(prevMonth).padStart(2, '0')}-27`;
   const periodEnd   = `${year}-${String(month).padStart(2, '0')}-26`;
 
-  // Obtener empleados activos
   const { data: employees, error: empErr } = await supabase
     .from('employees')
     .select('*')
@@ -324,7 +317,6 @@ export async function calculatePeriodIncidencias(
 
   if (empErr) throw new Error(empErr.message);
 
-  // Obtener todas las entradas del período
   const { data: timeEntries, error: teErr } = await supabase
     .from('time_entries')
     .select('user_id, date, clock_in, clock_out, status')
@@ -333,7 +325,6 @@ export async function calculatePeriodIncidencias(
 
   if (teErr) throw new Error(teErr.message);
 
-  // Obtener permisos aprobados del período
   const { data: permisos } = await supabase
     .from('permisos_vacaciones')
     .select('employee_id, start_date, end_date, type')
@@ -341,7 +332,6 @@ export async function calculatePeriodIncidencias(
     .gte('start_date', periodStart)
     .lte('end_date', periodEnd);
 
-  // Obtener perfiles para vincular user_id con employee
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id, email');
@@ -351,9 +341,8 @@ export async function calculatePeriodIncidencias(
   );
 
   let created = 0;
-  let updated = 0;
+  const updated = 0;
 
-  // Calcular días laborables del período (L-V)
   const businessDays: string[] = [];
   const d = new Date(periodStart + 'T12:00:00');
   const endD = new Date(periodEnd + 'T12:00:00');
@@ -365,7 +354,6 @@ export async function calculatePeriodIncidencias(
     d.setDate(d.getDate() + 1);
   }
 
-  // Eliminar incidencias auto anteriores del período para recalcular
   await supabase
     .from('incidencias')
     .delete()
@@ -378,16 +366,11 @@ export async function calculatePeriodIncidencias(
     const entryTime   = (emp.entry_time as string) ?? '08:00';
     const tolerance   = (emp.tolerance_minutes as number) ?? 10;
 
-    // Entradas del empleado en el período
     const empEntries = (timeEntries ?? []).filter(te => {
       const email = emailById[te.user_id as string];
       return email === empEmail;
     });
 
-    // checkedDays unused — kept for future reference
-    // const checkedDays = new Set(empEntries.map(te => te.date as string));
-
-    // Permisos del empleado
     const empPermisos = (permisos ?? []).filter(p => p.employee_id === empId);
     const permisoDays = new Set<string>();
     for (const p of empPermisos) {
@@ -407,12 +390,11 @@ export async function calculatePeriodIncidencias(
     let retardoCount = 0;
 
     for (const day of businessDays) {
-      if (permisoDays.has(day)) continue;  // Día con permiso aprobado
+      if (permisoDays.has(day)) continue;
 
       const entry = empEntries.find(te => te.date === day);
 
       if (!entry) {
-        // Ausencia Sin Justificación
         toInsert.push({
           employee_id:  empId,
           date:         day,
@@ -423,7 +405,6 @@ export async function calculatePeriodIncidencias(
           created_by:   adminEmail,
         });
       } else {
-        // Verificar retardo
         const maxEntry = new Date(`${day}T${entryTime}:00`);
         maxEntry.setMinutes(maxEntry.getMinutes() + tolerance);
 
@@ -437,14 +418,13 @@ export async function calculatePeriodIncidencias(
             date:         day,
             type:         'retardo',
             minutes:      lateMin,
-            discount_days: lateMin > 30 ? 0.5 : 0,  // Más de 30 min → medio día
+            discount_days: lateMin > 30 ? 0.5 : 0,
             source:       'auto',
             period,
             created_by:   adminEmail,
           });
         }
 
-        // No checada (entró pero no registró salida)
         if (!entry.clock_out && entry.status === 'active') {
           toInsert.push({
             employee_id:  empId,
@@ -458,7 +438,6 @@ export async function calculatePeriodIncidencias(
       }
     }
 
-    // Bono de puntualidad (cero retardos en el período)
     if (retardoCount === 0 && businessDays.length > 0) {
       toInsert.push({
         employee_id: empId,
@@ -520,7 +499,6 @@ export async function getMonthlyReport(
     };
   }
 
-  // Agregar incidencias por empleado
   for (const inc of incs ?? []) {
     const empId = inc.employee_id as string;
     if (!summaryMap[empId]) continue;
@@ -548,7 +526,6 @@ export async function getMonthlyReport(
     }
   }
 
-  // Agregar permisos aprobados
   const [year, month] = period.split('-').map(Number);
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear  = month === 1 ? year - 1 : year;
@@ -567,7 +544,6 @@ export async function getMonthlyReport(
     if (!summaryMap[empId]) continue;
     const s = summaryMap[empId];
     switch (p.type as PermisosType) {
-      case 'vacaciones':      s.vacaciones    += (p.days as number); break;
       case 'permiso_pgss':    s.ausenciasPSGS += (p.days as number); break;
       case 'incapacidad':     s.incapacidades += (p.days as number); break;
       case 'permiso_horas':
@@ -579,3 +555,83 @@ export async function getMonthlyReport(
     a.employeeName.localeCompare(b.employeeName)
   );
 }
+
+// ─── PRESENCIA ───────────────────────────────────────────────
+
+export interface EmployeePresence {
+  userEmail:    string;
+  fullName:     string;
+  preferredName: string;
+  position:     string;
+  department:   string;
+  status:       'working' | 'done' | 'online' | 'inactive';
+  clockIn?:     string;
+  clockOut?:    string;
+  lastSeenAt?:  string;
+}
+
+export async function getPresenceData(): Promise<EmployeePresence[]> {
+  const today = format(new Date(), 'yyyy-MM-dd');
+
+  const { data: entries } = await supabase
+    .from('time_entries')
+    .select('user_id, clock_in, clock_out, status')
+    .eq('date', today);
+
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, email, last_seen_at');
+
+  const { data: employees } = await supabase
+    .from('employees')
+    .select('user_email, full_name, preferred_name, position, department')
+    .eq('status', 'active');
+
+  if (!employees) return [];
+
+  const now = new Date();
+  const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
+
+  const entryByUserId = Object.fromEntries(
+    (entries ?? []).map(e => [e.user_id as string, e])
+  );
+
+  const profileByEmail = Object.fromEntries(
+    (profiles ?? []).map(p => [p.email as string, p])
+  );
+
+  return employees.map(emp => {
+    const email   = emp.user_email as string;
+    const profile = profileByEmail[email];
+    const entry   = profile ? entryByUserId[profile.id as string] : undefined;
+    const lastSeen = profile?.last_seen_at
+      ? new Date(profile.last_seen_at as string)
+      : null;
+    const isOnline = lastSeen
+      ? now.getTime() - lastSeen.getTime() < ONLINE_THRESHOLD_MS
+      : false;
+
+    let status: EmployeePresence['status'];
+    if (entry && !entry.clock_out) {
+      status = 'working';
+    } else if (entry && entry.clock_out) {
+      status = 'done';
+    } else if (isOnline) {
+      status = 'online';
+    } else {
+      status = 'inactive';
+    }
+
+    return {
+      userEmail:     email,
+      fullName:      emp.full_name as string,
+      preferredName: (emp.preferred_name as string) ?? '',
+      position:      (emp.position as string) ?? '',
+      department:    (emp.department as string) ?? '',
+      status,
+      clockIn:    entry?.clock_in  as string | undefined,
+      clockOut:   entry?.clock_out as string | undefined,
+      lastSeenAt: profile?.last_seen_at as string | undefined,
+    };
+  });
+    }
