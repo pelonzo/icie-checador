@@ -30,6 +30,7 @@ interface DashboardProps {
   clockOut: () => void;
   startPause: (type: 'meal' | 'break' | 'other') => void;
   endPause: () => void;
+  onNavigatePermisos: () => void;
 }
 
 export function Dashboard({
@@ -42,13 +43,13 @@ export function Dashboard({
   clockIn,
   clockOut,
   startPause,
-  endPause
+  endPause,
+  onNavigatePermisos,
 }: DashboardProps) {
 
   const [openAccordion, setOpenAccordion] = useState<string | null>('devices');
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
 
-  // Obtener detalles del dispositivo del usuario actual
   const deviceDetails = useMemo(() => {
     if (typeof window === 'undefined') return { os: 'Desconocido', browser: 'Desconocido' };
     const ua = navigator.userAgent;
@@ -66,7 +67,6 @@ export function Dashboard({
     return { os, browser };
   }, []);
 
-  // Escuchar el tamaño de la cola de sincronización de IndexedDB
   useEffect(() => {
     async function updateSyncCount() {
       try {
@@ -78,7 +78,6 @@ export function Dashboard({
     }
 
     updateSyncCount();
-    // Suscribir a la tabla de cola usando un intervalo rápido
     const interval = setInterval(updateSyncCount, 1500);
     return () => clearInterval(interval);
   }, []);
@@ -87,7 +86,6 @@ export function Dashboard({
     setOpenAccordion(openAccordion === id ? null : id);
   };
 
-  // Horas del mes actual para el badge del usuario
   const totalHoursThisMonth = useMemo(() => {
     const startOfCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     const monthEntries = entries.filter(e => {
@@ -99,7 +97,6 @@ export function Dashboard({
     return Math.round(total * 10) / 10;
   }, [entries]);
 
-  // Hitos del día actual (checklist)
   const todayMilestones = useMemo(() => {
     const milestones = [
       { id: 'login', text: 'Sesión iniciada con Google', completed: true },
@@ -114,11 +111,9 @@ export function Dashboard({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full items-start">
 
-      {/* Left Column: Profile Card and Accordion (Span 3) */}
+      {/* Left Column */}
       <section className="lg:col-span-3 flex flex-col gap-6 w-full">
-        {/* Profile Card */}
         <div className="glass-panel rounded-[2.5rem] border border-card-border p-6 shadow-premium relative overflow-hidden flex flex-col items-center text-center">
-          {/* Accent decoration */}
           <div className="absolute top-0 inset-x-0 h-2 bg-accent-gold"></div>
 
           <div className="relative mt-4 mb-4">
@@ -138,16 +133,13 @@ export function Dashboard({
             Colaborador Google
           </span>
 
-          {/* Monthly hours pill */}
           <div className="inline-flex items-center gap-1.5 px-4 py-2 bg-nav-active text-white rounded-full text-xs font-semibold shadow-md">
             <Clock className="w-3.5 h-3.5 text-accent-gold" />
             <span>{formatHoursMinutes(totalHoursThisMonth)} trabajadas</span>
           </div>
         </div>
 
-        {/* Accordion Menu */}
         <div className="glass-panel rounded-[2.5rem] border border-card-border p-5 shadow-premium flex flex-col gap-2">
-          {/* Item 1: Dispositivos */}
           <div className="border-b border-card-border pb-2 last:border-0 last:pb-0">
             <button
               onClick={() => toggleAccordion('devices')}
@@ -169,7 +161,6 @@ export function Dashboard({
             )}
           </div>
 
-          {/* Item 2: Resumen Corporativo */}
           <div className="border-b border-card-border pb-2 last:border-0 last:pb-0">
             <button
               onClick={() => toggleAccordion('compensation')}
@@ -196,7 +187,6 @@ export function Dashboard({
             )}
           </div>
 
-          {/* Item 3: Soporte / Google Sheets */}
           <div className="border-b border-card-border pb-2 last:border-0 last:pb-0">
             <button
               onClick={() => toggleAccordion('support')}
@@ -220,9 +210,8 @@ export function Dashboard({
         </div>
       </section>
 
-      {/* Middle Column: Welcome, Stats row, and Main widgets grid (Span 6) */}
+      {/* Middle Column */}
       <section className="lg:col-span-6 flex flex-col gap-6 w-full">
-        {/* Welcome message */}
         <div className="flex flex-col">
           <h1 className="text-3xl md:text-4xl font-extrabold text-text-dark tracking-tight mb-1">
             ¡Bienvenido {user.fullName.split(' ')[0]}!
@@ -232,7 +221,6 @@ export function Dashboard({
           </p>
         </div>
 
-        {/* Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StatsCard
             title="Horas Semana"
@@ -256,7 +244,6 @@ export function Dashboard({
           />
         </div>
 
-        {/* Widgets Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
           <WeeklyChart entries={entries} pauses={pauses} />
           <TimeClockControls
@@ -269,18 +256,16 @@ export function Dashboard({
             onEndPause={endPause}
           />
         </div>
-      </section >
+      </section>
 
-      {/* Right Column: Today's Status & Milestone Checklist (Span 3) */}
-      < section className="lg:col-span-3 flex flex-col gap-6 w-full" >
-        {/* Today's Pause Status and Timeline */}
-        < CurrentStatus
+      {/* Right Column */}
+      <section className="lg:col-span-3 flex flex-col gap-6 w-full">
+        <CurrentStatus
           activeEntry={activeEntry}
           activeEntryPauses={activeEntryPauses}
         />
 
-        {/* Today's Activity / Milestone Checklist Widget */}
-        < div className="glass-panel p-6 rounded-[2.5rem] border border-card-border shadow-premium flex flex-col" >
+        <div className="glass-panel p-6 rounded-[2.5rem] border border-card-border shadow-premium flex flex-col">
           <div className="flex justify-between items-center mb-4">
             <h4 className="font-bold text-sm text-text-dark uppercase tracking-wider">
               Hitos de Hoy
@@ -290,7 +275,6 @@ export function Dashboard({
             </span>
           </div>
 
-          {/* List representing the checklist */}
           <div className="space-y-3">
             {todayMilestones.list.map((m) => (
               <div
@@ -310,7 +294,7 @@ export function Dashboard({
               </div>
             ))}
           </div>
-        </div >
+        </div>
 
         {/* Acceso rápido: solicitar permiso */}
         <button
@@ -326,9 +310,9 @@ export function Dashboard({
           </div>
           <ChevronRight className="w-4 h-4 text-text-muted group-hover:translate-x-0.5 transition-transform shrink-0" />
         </button>
-      </section >
+      </section>
 
-    </div >
+    </div>
   );
 }
 export default Dashboard;
