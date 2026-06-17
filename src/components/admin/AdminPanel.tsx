@@ -102,22 +102,37 @@ function PresenceCard({ emp }: { emp: EmployeePresence }) {
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/50 transition-colors">
+      {/* Avatar con indicador */}
       <div className="relative shrink-0">
-        <div className="w-10 h-10 rounded-full bg-[#0F2B3C]/10 flex items-center justify-center">
-          <span className="text-xs font-extrabold text-[#0F2B3C]">
-            {getInitials(emp.preferredName || emp.fullName)}
-          </span>
+        <div className="w-10 h-10 rounded-full overflow-hidden bg-[#0F2B3C]/10 flex items-center justify-center">
+          {emp.avatarUrl ? (
+            <img
+              src={emp.avatarUrl}
+              alt={emp.fullName}
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+          ) : (
+            <span className="text-xs font-extrabold text-[#0F2B3C]">
+              {getInitials(emp.preferredName || emp.fullName)}
+            </span>
+          )}
         </div>
         <span
           className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${cfg.dot} ring-2 ${cfg.ring}`}
         />
       </div>
+
+      {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-text-dark truncate">
           {emp.preferredName || emp.fullName.split(' ')[0]}
         </p>
         <p className="text-[10px] text-text-muted truncate leading-tight">{subLabel}</p>
       </div>
+
+      {/* Badge de estado */}
       <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${cfg.text} ${cfg.bg}`}>
         <cfg.Icon className="w-2.5 h-2.5" />
         {cfg.label}
@@ -160,6 +175,7 @@ export function AdminPanel({ adminEmail: _adminEmail, onNavigate }: AdminPanelPr
     setPresenceLoading(true);
     try {
       const data = await getPresenceData();
+      // Ordenar: trabajando → en línea → jornada completa → sin actividad
       const order = { working: 0, online: 1, done: 2, inactive: 3 };
       data.sort((a, b) => order[a.status] - order[b.status]);
       setPresence(data);
@@ -173,6 +189,7 @@ export function AdminPanel({ adminEmail: _adminEmail, onNavigate }: AdminPanelPr
 
   useEffect(() => {
     loadPresence();
+    // Auto-refresh cada 30 segundos
     const interval = setInterval(loadPresence, 30 * 1000);
     return () => clearInterval(interval);
   }, [loadPresence]);
@@ -245,6 +262,7 @@ export function AdminPanel({ adminEmail: _adminEmail, onNavigate }: AdminPanelPr
         </p>
       </div>
 
+      {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Solicitudes Pendientes', value: pendingPermisos.length, icon: Clock,         color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -264,6 +282,7 @@ export function AdminPanel({ adminEmail: _adminEmail, onNavigate }: AdminPanelPr
         ))}
       </div>
 
+      {/* Nav Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {navCards.map(({ view, icon: Icon, label, desc, color, bg, badge }) => (
           <button
@@ -290,10 +309,12 @@ export function AdminPanel({ adminEmail: _adminEmail, onNavigate }: AdminPanelPr
 
       {/* ── PRESENCIA HOY ────────────────────────────────────── */}
       <div className="glass-panel rounded-[1.75rem] border border-card-border shadow-premium overflow-hidden">
+        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-card-border">
           <div className="flex items-center gap-2.5">
             <Wifi className="w-4 h-4 text-green-500" />
             <h2 className="text-sm font-bold text-text-dark">Presencia de Hoy</h2>
+            {/* Resumen compacto */}
             <div className="flex items-center gap-1.5 ml-1">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-green-700 bg-green-50">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
@@ -311,6 +332,7 @@ export function AdminPanel({ adminEmail: _adminEmail, onNavigate }: AdminPanelPr
             onClick={loadPresence}
             disabled={presenceLoading}
             className="flex items-center gap-1.5 text-xs font-bold text-text-muted hover:text-text-dark transition-colors disabled:opacity-50"
+            title="Actualizar"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${presenceLoading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">
@@ -322,6 +344,7 @@ export function AdminPanel({ adminEmail: _adminEmail, onNavigate }: AdminPanelPr
           </button>
         </div>
 
+        {/* Grid de colaboradores */}
         {presenceLoading && presence.length === 0 ? (
           <div className="flex items-center gap-3 text-text-muted text-xs px-6 py-5">
             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -331,11 +354,13 @@ export function AdminPanel({ adminEmail: _adminEmail, onNavigate }: AdminPanelPr
           <p className="text-xs text-text-muted px-6 py-5">Sin datos de empleados.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 divide-card-border">
+            {/* Columna izquierda */}
             <div className="px-4 py-3 space-y-0.5 md:border-r border-card-border">
               {presence
                 .filter((_, i) => i % 2 === 0)
                 .map(emp => <PresenceCard key={emp.userEmail} emp={emp} />)}
             </div>
+            {/* Columna derecha */}
             <div className="px-4 py-3 space-y-0.5">
               {presence
                 .filter((_, i) => i % 2 === 1)
@@ -344,6 +369,7 @@ export function AdminPanel({ adminEmail: _adminEmail, onNavigate }: AdminPanelPr
           </div>
         )}
 
+        {/* Leyenda */}
         <div className="flex flex-wrap items-center gap-3 px-6 py-3 border-t border-card-border bg-[#e9e5db]/20">
           {[
             { dot: 'bg-green-500',  label: 'Trabajando (fichado)' },
@@ -360,6 +386,7 @@ export function AdminPanel({ adminEmail: _adminEmail, onNavigate }: AdminPanelPr
         </div>
       </div>
 
+      {/* Solicitudes pendientes */}
       {pendingPermisos.length > 0 && (
         <div className="glass-panel rounded-[1.75rem] border border-card-border shadow-premium overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-card-border">
@@ -394,6 +421,7 @@ export function AdminPanel({ adminEmail: _adminEmail, onNavigate }: AdminPanelPr
         </div>
       )}
 
+      {/* Resumen incidencias */}
       {monthlyReport.length > 0 && (
         <div className="glass-panel rounded-[1.75rem] border border-card-border shadow-premium overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-card-border">
@@ -453,4 +481,4 @@ export function AdminPanel({ adminEmail: _adminEmail, onNavigate }: AdminPanelPr
       )}
     </div>
   );
-  }
+}
