@@ -30,11 +30,12 @@ interface AdminPanelProps {
 function currentPeriod(): string {
   const now = new Date();
   const day = now.getDate();
-  const year = now.getFullYear();
-  const month = day >= 27 ? now.getMonth() + 1 : now.getMonth();
-  const realMonth = month === 0 ? 12 : month;
-  const realYear  = month === 0 ? year - 1 : year;
-  return `${realYear}-${String(realMonth).padStart(2, '0')}`;
+  // getMonth() es 0-indexado. El período se nombra por el mes en que CIERRA (día 26).
+  // Si hoy >= 27 ya entramos al período que cierra el mes siguiente.
+  let year = now.getFullYear();
+  let month = now.getMonth() + 1 + (day >= 27 ? 1 : 0);
+  if (month > 12) { month = 1; year++; }
+  return `${year}-${String(month).padStart(2, '0')}`;
 }
 
 // ─── Helpers de presencia ─────────────────────────────────────
