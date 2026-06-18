@@ -9,6 +9,7 @@ import {
   CheckCircle,
   XCircle,
   User,
+  FileSpreadsheet,
 } from 'lucide-react';
 import {
   getMonthlyReport,
@@ -17,6 +18,7 @@ import {
 } from '../../lib/adminApi';
 import type { MonthlyIncidenciaSummary, Incidencia } from '../../types/admin';
 import { INCIDENCIA_LABELS } from '../../types/admin';
+import { exportIncidenciasExcel } from '../../lib/excelExport';
 import { format, parseISO, subMonths, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -34,11 +36,10 @@ function getPeriodLabel(period: string): string {
 function currentPeriod(): string {
   const now = new Date();
   const day = now.getDate();
-  const y   = now.getFullYear();
-  const m   = day >= 27 ? now.getMonth() + 1 : now.getMonth();
-  const realM = m === 0 ? 12 : m;
-  const realY = m === 0 ? y - 1 : y;
-  return `${realY}-${String(realM).padStart(2, '0')}`;
+  let year = now.getFullYear();
+  let month = now.getMonth() + 1 + (day >= 27 ? 1 : 0);
+  if (month > 12) { month = 1; year++; }
+  return `${year}-${String(month).padStart(2, '0')}`;
 }
 
 function navigatePeriod(period: string, direction: 1 | -1): string {
@@ -107,36 +108,32 @@ export function IncidenciasPanel({ adminEmail }: IncidenciasPanelProps) {
     }
   };
 
-  const exportCSV = () => {
-    const headers = ['ID', 'Nombre', 'Departamento', 'Puesto', 'Aus. PSGS', 'Incap.', 'Vacaciones', 'Retardos', 'Min. Retardo', 'Aus. SJ', 'No Checadas', 'Permisos Días', 'Desc. Ret.', 'Desc. Aus.', 'Bono'];
-    const rows = summary.map((r) => [
-      r.employeeId, r.employeeName, r.department, r.position,
-      r.ausenciasPSGS, r.incapacidades, r.vacaciones,
-      r.retardos, r.retardoMinutos, r.ausenciasSJ, r.noChecadas,
-      r.permisosDias, r.descuentoRetardos, r.descuentoAusencias,
-      r.bonoPuntualidad ? 'SI' : 'NO',
-    ]);
-    const csv = [headers, ...rows]
-      .map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Incidencias_${period}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const [exporting, setExporting] = useState(false);
+
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      // Obtener incidencias detalladas para la hoja "Resumen Descuentos"
+      const allIncs = await getIncidencias(period);
+      exportIncidenciasExcel(period, summary, allIncs);
+    } catch (err) {
+      console.error('Error al exportar Excel:', err);
+      alert('Error al generar el reporte. Revisa la consola.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const totals = summary.reduce(
     (acc, r) => ({
-      retardos:   acc.retardos   + r.retardos,
-      ausenciasSJ: acc.ausenciasSJ + r.ausenciasSJ,
-      vacaciones:  acc.vacaciones  + r.vacaciones,
-      noChecadas:  acc.noChecadas  + r.noChecadas,
-      bono:        acc.bono        + (r.bonoPuntualidad ? 1 : 0),
+      retardos:      acc.retardos      + r.retardos,
+      ausenciasSJ:   acc.ausenciasSJ   + r.ausenciasSJ,
+      vacaciones:    acc.vacaciones    + r.vacaciones,
+      noChecadas:    acc.noChecadas    + r.noChecadas,
+      bonoPunt:      acc.bonoPunt      + (r.bonoPuntualidad ? 1 : 0),
+      bonoAsist:     acc.bonoAsist     + (r.bonoAsistencia  ? 1 : 0),
     }),
-    { retardos: 0, ausenciasSJ: 0, vacaciones: 0, noChecadas: 0, bono: 0 }
+    { retardos: 0, ausenciasSJ: 0, vacaciones: 0, noChecadas: 0, bonoPunt: 0, bonoAsist: 0 }
   );
 
   return (
@@ -158,12 +155,15 @@ export function IncidenciasPanel({ adminEmail }: IncidenciasPanelProps) {
             {calculating ? 'Calculando...' : 'Recalcular'}
           </button>
           <button
-            onClick={exportCSV}
-            disabled={summary.length === 0}
+            onClick={exportExcel}
+            disabled={summary.length === 0 || exporting}
             className="flex items-center gap-2 px-5 py-2.5 bg-nav-active hover:bg-black disabled:bg-gray-300 text-white rounded-full text-sm font-semibold shadow-md transition-all active:scale-95"
           >
-            <Download className="w-4 h-4" />
-            Exportar CSV
+            {exporting
+              ? <RefreshCw className="w-4 h-4 animate-spin" />
+              : <FileSpreadsheet className="w-4 h-4" />
+            }
+            {exporting ? 'Generando...' : 'Exportar Pandapé'}
           </button>
         </div>
       </div>
@@ -212,11 +212,12 @@ export function IncidenciasPanel({ adminEmail }: IncidenciasPanelProps) {
       {mode === 'summary' && !loading && summary.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
-            { label: 'Retardos',    value: totals.retardos,   color: 'text-red-500'   },
-            { label: 'Ausencias SJ', value: totals.ausenciasSJ, color: 'text-red-700' },
-            { label: 'Vacaciones',  value: totals.vacaciones,  color: 'text-blue-600' },
-            { label: 'No Checadas', value: totals.noChecadas,  color: 'text-amber-600' },
-            { label: 'Con Bono',    value: `${totals.bono}/${summary.length}`, color: 'text-green-600' },
+            { label: 'Retardos',     value: totals.retardos,                           color: 'text-red-500'   },
+            { label: 'Ausencias SJ', value: totals.ausenciasSJ,                        color: 'text-red-700'   },
+            { label: 'Vacaciones',   value: totals.vacaciones,                         color: 'text-blue-600'  },
+            { label: 'No Checadas',  value: totals.noChecadas,                         color: 'text-amber-600' },
+            { label: 'Bono Punt.',   value: `${totals.bonoPunt}/${summary.length}`,    color: 'text-green-600' },
+            { label: 'Bono Asist.',  value: `${totals.bonoAsist}/${summary.length}`,   color: 'text-emerald-600' },
           ].map(({ label, value, color }) => (
             <div key={label} className="glass-panel p-4 rounded-2xl border border-card-border text-center">
               <p className={`text-2xl font-extrabold ${color}`}>{value}</p>
@@ -254,7 +255,8 @@ export function IncidenciasPanel({ adminEmail }: IncidenciasPanelProps) {
                     <th className="px-3 py-3 text-center">No Chec.</th>
                     <th className="px-3 py-3 text-center">Desc. Ret.</th>
                     <th className="px-3 py-3 text-center">Desc. Aus.</th>
-                    <th className="px-3 py-3 text-center">Bono</th>
+                    <th className="px-3 py-3 text-center">B. Punt.</th>
+                    <th className="px-3 py-3 text-center">B. Asist.</th>
                     <th className="px-3 py-3 text-right">Detalle</th>
                   </tr>
                 </thead>
@@ -277,6 +279,12 @@ export function IncidenciasPanel({ adminEmail }: IncidenciasPanelProps) {
                       <td className="px-3 py-3.5 text-center">
                         {row.bonoPuntualidad
                           ? <CheckCircle className="w-4 h-4 text-green-500 mx-auto" />
+                          : <XCircle className="w-4 h-4 text-text-muted/30 mx-auto" />
+                        }
+                      </td>
+                      <td className="px-3 py-3.5 text-center">
+                        {row.bonoAsistencia
+                          ? <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" />
                           : <XCircle className="w-4 h-4 text-text-muted/30 mx-auto" />
                         }
                       </td>
