@@ -365,6 +365,8 @@ export async function calculatePeriodIncidencias(
     d.setDate(d.getDate() + 1);
   }
 
+  const today = format(new Date(), 'yyyy-MM-dd');
+
   // Eliminar incidencias auto anteriores del período para recalcular
   await supabase
     .from('incidencias')
@@ -377,6 +379,8 @@ export async function calculatePeriodIncidencias(
     const empId       = emp.id as string;
     const entryTime   = (emp.entry_time as string) ?? '08:00';
     const tolerance   = (emp.tolerance_minutes as number) ?? 10;
+    // Empleados con horario flexible (ej. Denis) no acumulan retardos
+    const isFlexible  = (emp.schedule_label as string || '').toLowerCase().includes('flexible');
 
     // Entradas del empleado en el período
     const empEntries = (timeEntries ?? []).filter(te => {
@@ -423,29 +427,31 @@ export async function calculatePeriodIncidencias(
           created_by:   adminEmail,
         });
       } else {
-        // Verificar retardo
-        const maxEntry = new Date(`${day}T${entryTime}:00`);
-        maxEntry.setMinutes(maxEntry.getMinutes() + tolerance);
+        // Verificar retardo (solo empleados con horario fijo)
+        if (!isFlexible) {
+          const maxEntry = new Date(`${day}T${entryTime}:00`);
+          maxEntry.setMinutes(maxEntry.getMinutes() + tolerance);
 
-        const actualIn = parseISO(entry.clock_in as string);
-        const lateMin  = differenceInMinutes(actualIn, maxEntry);
+          const actualIn = parseISO(entry.clock_in as string);
+          const lateMin  = differenceInMinutes(actualIn, maxEntry);
 
-        if (lateMin > 0) {
-          retardoCount++;
-          toInsert.push({
-            employee_id:  empId,
-            date:         day,
-            type:         'retardo',
-            minutes:      lateMin,
-            discount_days: lateMin > 30 ? 0.5 : 0,  // Más de 30 min → medio día
-            source:       'auto',
-            period,
-            created_by:   adminEmail,
-          });
+          if (lateMin > 0) {
+            retardoCount++;
+            toInsert.push({
+              employee_id:   empId,
+              date:          day,
+              type:          'retardo',
+              minutes:       lateMin,
+              discount_days: 0.25,  // Todo retardo = 0.25 días (Pandapé)
+              source:        'auto',
+              period,
+              created_by:    adminEmail,
+            });
+          }
         }
 
-        // No checada (entró pero no registró salida)
-        if (!entry.clock_out && entry.status === 'active') {
+        // No checada: entró pero no registró salida en un día ya terminado
+        if (!entry.clock_out && day < today) {
           toInsert.push({
             employee_id:  empId,
             date:         day,
@@ -514,9 +520,12 @@ export async function getMonthlyReport(
       ausenciasSJ:       0,
       noChecadas:        0,
       permisosDias:      0,
+      permisoMinutos:    0,
+      reposicionMinutos: 0,
       descuentoRetardos: 0,
       descuentoAusencias: 0,
       bonoPuntualidad:   false,
+      bonoAsistencia:    false,
     };
   }
 
@@ -557,7 +566,7 @@ export async function getMonthlyReport(
 
   const { data: permisos } = await supabase
     .from('permisos_vacaciones')
-    .select('employee_id, type, days')
+    .select('employee_id, type, days, hours')
     .eq('status', 'approved')
     .gte('start_date', periodStart)
     .lte('end_date', periodEnd);
@@ -567,11 +576,17 @@ export async function getMonthlyReport(
     if (!summaryMap[empId]) continue;
     const s = summaryMap[empId];
     switch (p.type as PermisosType) {
-      case 'permiso_pgss':    s.ausenciasPSGS += (p.days as number); break;
-      case 'incapacidad':     s.incapacidades += (p.days as number); break;
-      case 'permiso_horas':
-      case 'permiso_sin_goce': s.permisosDias += (p.days as number); break;
+      case 'permiso_pgss':     s.ausenciasPSGS  += (p.days as number); break;
+      case 'incapacidad':      s.incapacidades  += (p.days as number); break;
+      case 'permiso_sin_goce': s.permisosDias   += (p.days as number); break;
+      case 'permiso_horas':    s.permisoMinutos += Math.round(((p.hours as number) || 0) * 60); break;
+      case 'vacaciones':       s.vacaciones     += (p.days as number); break;
     }
+  }
+
+  // Calcular bono asistencia (sin ausencias SJ en el período)
+  for (const s of Object.values(summaryMap)) {
+    s.bonoAsistencia = s.ausenciasSJ === 0;
   }
 
   return Object.values(summaryMap).sort((a, b) =>
