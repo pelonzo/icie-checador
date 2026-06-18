@@ -88,9 +88,12 @@ export interface MonthlyIncidenciaSummary {
   ausenciasSJ: number;
   noChecadas: number;
   permisosDias: number;
+  permisoMinutos: number;    // minutos de permiso_horas aprobados
+  reposicionMinutos: number; // siempre 0 (no implementado aún)
   descuentoRetardos: number;
   descuentoAusencias: number;
   bonoPuntualidad: boolean;
+  bonoAsistencia: boolean;   // true si ausenciasSJ === 0
 }
 
 // ─── Etiquetas legibles ──────────────────────────────────────
